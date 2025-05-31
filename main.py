@@ -1,11 +1,9 @@
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import ParseMode
 from aiogram.utils import executor
 from aiogram.dispatcher.filters import Command
 from aiogram.utils.exceptions import BotBlocked
+from datetime import datetime, timedelta
 import logging
-from datetime import datetime
-import pytz
 
 import config
 import db
@@ -16,8 +14,6 @@ dp = Dispatcher(bot)
 
 logging.basicConfig(level=logging.INFO)
 
-tz = pytz.timezone('Asia/Dubai') 
-
 WELCOME_TEXT = (
     "Добро пожаловать в бота по сбоям Рунета. Теперь ты автоматически подписан на уведомления о сбоях в интернете. 🌐\n"
     "Если надоест — блокируй бота и уведомления лететь тебе не будут ❤️\n"
@@ -26,14 +22,13 @@ WELCOME_TEXT = (
     "Спасибо, что остаетесь с нами! 👥"
 )
 
-ADMINS_TEXT = (
+ADMIN_TEXT = (
     "👤Администраторы данного бота:\n"
     "🤴@internetmodel - владелец, по вопросам в разработке бота - к нему\n"
     "🧑‍💻@overnightwatch - кодер, отвечает за работу серверов и их обслуживание"
 )
 
 COMMANDS_TEXT = (
-    "Доступные команды:\n"
     "/last - последние информации о сбоях\n"
     "/mirror - создание зеркала бота через @botfather\n"
     "/admins - администраторы бота (если вы хотите с ними связаться)"
@@ -47,7 +42,6 @@ async def handle_start(message: types.Message):
             ref_id = int(message.get_args())
         except ValueError:
             pass
-
     db.add_user(message.from_user.id, referral_id=ref_id)
     await message.answer(WELCOME_TEXT)
 
@@ -66,11 +60,6 @@ async def handle_stats(message: types.Message):
     )
     await message.answer(text)
 
-@dp.message_handler(commands=["ref"])
-async def handle_ref(message: types.Message):
-    link = await utils.generate_referral_link(bot, message.from_user.id)
-    await message.answer(f"🔗 Ваша реферальная ссылка:\n{link}")
-
 @dp.message_handler(commands=["broadcast"])
 async def broadcast_message(message: types.Message):
     if message.from_user.id not in config.ADMIN_IDS:
@@ -80,9 +69,7 @@ async def broadcast_message(message: types.Message):
         return
 
     text = message.reply_to_message.text
-    now = datetime.now(tz)
-    db.save_last_message(text, now.strftime("%Y-%m-%d %H:%M:%S"))
-    
+    db.save_broadcast(text)  # сохраняем сообщение
     count = 0
     for user_id in db.get_active_users():
         try:
@@ -96,57 +83,29 @@ async def broadcast_message(message: types.Message):
 
 @dp.message_handler(commands=["last"])
 async def handle_last(message: types.Message):
-    last_messages = db.get_last_messages()
-    if not last_messages:
-        await message.answer("Пока нет сохраненных сообщений о сбоях.")
+    messages = db.get_last_broadcasts(limit=5)
+    if not messages:
+        await message.answer("Нет сохранённых сообщений.")
         return
-    
-    response = "📢 Последние сообщения о сбоях:\n\n"
-    for msg in last_messages:
-        response += f"🕒 {msg['timestamp']} (UTC+4)\n"
-        response += f"{msg['message']}\n\n"
-    
-    await message.answer(response)
+
+    formatted = "\n\n".join(
+        f"🕒 {msg['time']} (GMT+4):\n{msg['text']}"
+        for msg in messages
+    )
+    await message.answer(f"📰 Последние сообщения от админов:\n\n{formatted}")
 
 @dp.message_handler(commands=["admins"])
 async def handle_admins(message: types.Message):
-    await message.answer(ADMINS_TEXT)
+    await message.answer(ADMIN_TEXT)
+
+@dp.message_handler(commands=["command"])
+async def handle_command(message: types.Message):
+    await message.answer(COMMANDS_TEXT)
 
 @dp.message_handler(commands=["mirror"])
 async def handle_mirror(message: types.Message):
-    instructions = (
-        "Чтобы создать зеркало этого бота:\n"
-        "1. Перейдите к @BotFather\n"
-        "2. Создайте нового бота с командой /newbot\n"
-        "3. После создания получите токен бота\n"
-        "4. Используйте этот токен для развертывания своего экземпляра бота\n\n"
-    )
-    await message.answer(instructions)
-
-@dp.message_handler(commands=["command"])
-async def handle_commands(message: types.Message):
-    await message.answer(COMMANDS_TEXT)
-
-from aiogram.utils.executor import start_webhook
+    await message.answer("Чтобы создать зеркало бота, зайдите в @BotFather, нажмите /newbot и следуйте инструкциям.")
 
 if __name__ == "__main__":
-   
-    WEBHOOK_HOST = 'https://runet-failures-bot.onrender.com/'  
-    WEBHOOK_PATH = '/webhook'
-    WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
-    
+    executor.start_polling(dp)
 
-    WEBAPP_HOST = '0.0.0.0'  
-    WEBAPP_PORT = 10000  
-    
-    async def on_startup(dp):
-        await bot.set_webhook(WEBHOOK_URL)
-        logging.info("Бот успешно запущен через вебхук")
-    
-    start_webhook(
-        dispatcher=dp,
-        webhook_path=WEBHOOK_PATH,
-        on_startup=on_startup,
-        host=WEBAPP_HOST,
-        port=WEBAPP_PORT,
-    )
