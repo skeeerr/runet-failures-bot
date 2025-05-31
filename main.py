@@ -4,6 +4,8 @@ from aiogram.utils import executor
 from aiogram.dispatcher.filters import Command
 from aiogram.utils.exceptions import BotBlocked
 import logging
+from datetime import datetime
+import pytz
 
 import config
 import db
@@ -14,10 +16,27 @@ dp = Dispatcher(bot)
 
 logging.basicConfig(level=logging.INFO)
 
+tz = pytz.timezone('Asia/Dubai') 
+
 WELCOME_TEXT = (
-    "Добро пожаловать в бота по сбоям Рунета. Теперь ты автоматически подписан на уведомления о сбоях в интернете. "
+    "Добро пожаловать в бота по сбоям Рунета. Теперь ты автоматически подписан на уведомления о сбоях в интернете. 🌐\n"
     "Если надоест — блокируй бота и уведомления лететь тебе не будут ❤️\n"
-    "Вся остальная информация о боте и менеджер — в описании бота. Спасибо, что остаетесь с нами!"
+    "Вся остальная информация и менеджеры ботов будут в описании самого бота 👇\n"
+    "⚠️Главный бот - @downdetect0rbot\n"
+    "Спасибо, что остаетесь с нами! 👥"
+)
+
+ADMINS_TEXT = (
+    "👤Администраторы данного бота:\n"
+    "🤴@internetmodel - владелец, по вопросам в разработке бота - к нему\n"
+    "🧑‍💻@overnightwatch - кодер, отвечает за работу серверов и их обслуживание"
+)
+
+COMMANDS_TEXT = (
+    "Доступные команды:\n"
+    "/last - последние информации о сбоях\n"
+    "/mirror - создание зеркала бота через @botfather\n"
+    "/admins - администраторы бота (если вы хотите с ними связаться)"
 )
 
 @dp.message_handler(commands=["start"])
@@ -61,6 +80,9 @@ async def broadcast_message(message: types.Message):
         return
 
     text = message.reply_to_message.text
+    now = datetime.now(tz)
+    db.save_last_message(text, now.strftime("%Y-%m-%d %H:%M:%S"))
+    
     count = 0
     for user_id in db.get_active_users():
         try:
@@ -71,6 +93,39 @@ async def broadcast_message(message: types.Message):
         except Exception as e:
             logging.warning(f"Ошибка при отправке пользователю {user_id}: {e}")
     await message.answer(f"✅ Сообщение доставлено {count} пользователям.")
+
+@dp.message_handler(commands=["last"])
+async def handle_last(message: types.Message):
+    last_messages = db.get_last_messages()
+    if not last_messages:
+        await message.answer("Пока нет сохраненных сообщений о сбоях.")
+        return
+    
+    response = "📢 Последние сообщения о сбоях:\n\n"
+    for msg in last_messages:
+        response += f"🕒 {msg['timestamp']} (UTC+4)\n"
+        response += f"{msg['message']}\n\n"
+    
+    await message.answer(response)
+
+@dp.message_handler(commands=["admins"])
+async def handle_admins(message: types.Message):
+    await message.answer(ADMINS_TEXT)
+
+@dp.message_handler(commands=["mirror"])
+async def handle_mirror(message: types.Message):
+    instructions = (
+        "Чтобы создать зеркало этого бота:\n"
+        "1. Перейдите к @BotFather\n"
+        "2. Создайте нового бота с командой /newbot\n"
+        "3. После создания получите токен бота\n"
+        "4. Используйте этот токен для развертывания своего экземпляра бота\n\n"
+    )
+    await message.answer(instructions)
+
+@dp.message_handler(commands=["command"])
+async def handle_commands(message: types.Message):
+    await message.answer(COMMANDS_TEXT)
 
 if __name__ == "__main__":
     executor.start_polling(dp)
