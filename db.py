@@ -49,3 +49,9 @@ def get_active_users():
 def block_user(user_id):
     cursor.execute("UPDATE users SET is_blocked=1 WHERE user_id=?", (user_id,))
     conn.commit()
+
+def save_last_message(message: str, timestamp: str):
+    pass
+
+def get_last_messages(limit=5):
+    pass
