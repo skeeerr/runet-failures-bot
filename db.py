@@ -85,3 +85,6 @@ def get_last_messages(limit=5):
         result.append({"text": text, "time": formatted_time})
     return result
 
+def clear_old_messages():
+    cursor.execute("DELETE FROM broadcasts")
+    conn.commit()
