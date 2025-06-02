@@ -1,2 +1,2 @@
 # runet-failures-bot
-Первый бот
+Бот по сбоям рунета. Админы: TG: @internetmodel & @overnightwatch
