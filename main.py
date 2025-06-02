@@ -33,7 +33,8 @@ COMMANDS_TEXT = (
     "/last - последние информации о сбоях\n"
     "/ref - ваша реферальная ссылка\n"
     "/refstats - топ-10 по рефералам\n"
-    "/admins - администраторы бота (если вы хотите с ними связаться)"
+    "/admins - администраторы бота (если вы хотите с ними связаться)\n"
+    "/admin - панель администратора (для админов)"
 )
 
 ADMIN_LOG_ID = 602393297
@@ -56,6 +57,14 @@ async def handle_start(message: types.Message):
     full_name = f"{message.from_user.first_name or ''} {message.from_user.last_name or ''}".strip()
     db.add_user(message.from_user.id, name=full_name, referral_id=ref_id)
     await message.answer(WELCOME_TEXT)
+
+    # уведомление админу о новом реферале
+    if ref_id and ref_id != message.from_user.id:
+        await bot.send_message(
+            ADMIN_LOG_ID,
+            f"👤 Новый пользователь: [{full_name}](tg://user?id={message.from_user.id}) зарегистрировался по рефералке от ID {ref_id}",
+            parse_mode="Markdown"
+        )
 
 @dp.message_handler(commands=["stats"])
 async def handle_stats(message: types.Message):
@@ -158,5 +167,65 @@ async def handle_ref_stats(message: types.Message):
     text = "🏆 Топ-10 пользователей по реферальным приглашениям:\n\n" + "\n".join(lines)
     await message.answer(text)
 
+@dp.message_handler(commands=["admin"])
+async def handle_admin_panel(message: types.Message):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+
+    kb = InlineKeyboardMarkup(row_width=2).add(
+        InlineKeyboardButton("📊 Статистика", callback_data="admin_stats"),
+        InlineKeyboardButton("📨 Последнее сообщение", callback_data="admin_lastmsg"),
+        InlineKeyboardButton("📢 Рассылка", callback_data="admin_broadcast"),
+        InlineKeyboardButton("👥 Топ рефералов", callback_data="admin_refstats")
+    )
+
+    await message.answer("🔧 Панель администратора:", reply_markup=kb)
+
+@dp.callback_query_handler(lambda c: c.data.startswith("admin_"))
+async def process_admin_panel_callback(callback_query: types.CallbackQuery):
+    data = callback_query.data
+
+    if callback_query.from_user.id not in config.ADMIN_IDS:
+        return
+
+    if data == "admin_stats":
+        stats = db.get_stats()
+        text = (
+            f"📊 Статистика:\n"
+            f"📈Всего пользователей: {stats['total']}\n"
+            f"🔒Заблокировали бота: {stats['blocked']}\n"
+            f"🆕Новых за день: {stats['daily']}\n"
+            f"🆕Новых за неделю: {stats['weekly']}\n"
+            f"🆕Новых за месяц: {stats['monthly']}"
+        )
+        await callback_query.message.edit_text(text)
+
+    elif data == "admin_lastmsg":
+        messages = db.get_last_messages(limit=1)
+        if not messages:
+            await callback_query.message.edit_text("Последних сообщений от админов пока нет.")
+        else:
+            msg = messages[0]
+            await callback_query.message.edit_text(
+                f"🕒 {msg['time']} (GMT+4):\n{msg['text']}"
+            )
+
+    elif data == "admin_broadcast":
+        await callback_query.message.edit_text("Для рассылки просто ответьте на нужное сообщение командой /broadcast.")
+
+    elif data == "admin_refstats":
+        top_users = db.get_top_referrers(limit=10)
+        if not top_users:
+            await callback_query.message.edit_text("Реферальная статистика пока пуста.")
+        else:
+            lines = []
+            for i, user in enumerate(top_users, start=1):
+                name = user['name'] or f"id:{user['user_id']}"
+                count = user['count']
+                lines.append(f"{i}. {name} — {count} приглашённых")
+            text = "🏆 Топ-10 пользователей по реферальным приглашениям:\n\n" + "\n".join(lines)
+            await callback_query.message.edit_text(text)
+
 if __name__ == "__main__":
     executor.start_polling(dp)
+
