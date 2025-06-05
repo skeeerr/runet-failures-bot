@@ -2,9 +2,7 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY,
     name TEXT,
-    referral_id INTEGER,
-    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    blocked INTEGER DEFAULT 0
+    referral_id INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS messages (
