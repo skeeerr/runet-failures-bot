@@ -1,0 +1,12 @@
+{
+  "name": "graph-generator",
+  "version": "1.0.0",
+  "description": "Headless browser to capture downdetector graphs",
+  "main": "make_graph.js",
+  "scripts": {
+    "start": "node make_graph.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.3.8"
+  }
+}
