@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: runet-failures-bot
+    env: python
+    buildCommand: |
+      pip install -r requirements.txt
+      npm install
+    startCommand: |
+      node make_graph.js telegram &
+      python3 main.py
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: '1'
