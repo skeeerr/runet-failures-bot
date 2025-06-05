@@ -43,7 +43,7 @@ COMMANDS_TEXT = (
 
 ADMIN_TEXT = (
     "👤Администраторы данного бота:\n"
-    "🧔@internetmodel - владелец\n"
+    "🤴@internetmodel - владелец\n"
     "🧑‍💻@overnightwatch - кодер"
 )
 
@@ -147,10 +147,10 @@ async def menu_refstats(callback: types.CallbackQuery):
     if not top_users:
         text = "Реферальная статистика пока пуста."
     else:
-        lines = [
-            f"{i+1}. {user['name'] or f'id:{user['user_id']}'} — {user['count']} приглашённых"
-            for i, user in enumerate(top_users)
-        ]
+        lines = []
+        for i, user in enumerate(top_users):
+            name = user['name'] if user['name'] else f"id:{user['user_id']}"
+            lines.append(f"{i+1}. {name} — {user['count']} приглашённых")
         text = "🏆 Топ-10 пользователей по реферальным приглашениям:\n\n" + "\n".join(lines)
     kb = InlineKeyboardMarkup().add(InlineKeyboardButton("⬅️ Назад", callback_data="menu_ref"))
     await bot.send_message(callback.from_user.id, text, reply_markup=kb)
@@ -204,4 +204,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
