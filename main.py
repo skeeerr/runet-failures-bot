@@ -1,7 +1,8 @@
 import asyncio
 import aiohttp
 import logging
-import matplotlib.pyplot as plt
+import subprocess
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils import executor
@@ -92,18 +93,27 @@ async def menu_services(callback: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data.startswith("app_"))
 async def show_app_stats(callback: types.CallbackQuery):
     name = callback.data[4:]
-    url = apps[name]
-    hourly, daily, values = await fetch_data(url)
-    path = draw_graph(values, name)
-    text = (
-        f"⚠️Информация о работе {name.capitalize()}\n"
-        f"❗Жалоб за час: {hourly}\n"
-        f"❕Жалоб за сутки: {daily}\n\n"
-        f"🛜@nosignalrubot"
-    )
-    back = InlineKeyboardMarkup().add(InlineKeyboardButton("⬅️ Назад", callback_data="menu_services"))
-    await bot.send_photo(callback.message.chat.id, photo=open(path, "rb"), caption=text, reply_markup=back)
-    await callback.answer()
+    await callback.message.delete()
+
+    # Генерация графика с помощью Puppeteer
+    try:
+        result = subprocess.run(["node", "make_graph.js", name], capture_output=True, text=True, timeout=15)
+        if result.returncode != 0:
+            raise Exception(result.stderr)
+        img_path = f"graphs/{name}_graph.png"
+        if not os.path.exists(img_path):
+            raise FileNotFoundError(f"Файл графика не найден: {img_path}")
+
+        text = (
+            f"⚠️Информация о работе {name.capitalize()}\n\n"
+            f"📊 График жалоб за последние часы\n\n"
+            f"🛜@nosignalrubot"
+        )
+        back = InlineKeyboardMarkup().add(InlineKeyboardButton("⬅️ Назад", callback_data="menu_services"))
+        with open(img_path, "rb") as photo:
+            await bot.send_photo(callback.from_user.id, photo=photo, caption=text, reply_markup=back)
+    except Exception as e:
+        await bot.send_message(callback.from_user.id, f"Не удалось сгенерировать график: {e}")
 
 @dp.callback_query_handler(lambda c: c.data == "menu_last")
 async def menu_last(callback: types.CallbackQuery):
@@ -167,36 +177,6 @@ async def menu_commands(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup().add(InlineKeyboardButton("⬅️ Назад", callback_data="menu_main"))
     await bot.send_message(callback.from_user.id, COMMANDS_TEXT, reply_markup=kb)
 
-# Хелперы
-
-def draw_graph(values, name):
-    plt.figure(figsize=(8, 3))
-    plt.plot(values, marker='o', color='red')
-    plt.title(f"Жалобы на {name.capitalize()}")
-    plt.xlabel("Часы назад")
-    plt.ylabel("Жалобы")
-    plt.tight_layout()
-    path = f"{name}_graph.png"
-    plt.savefig(path)
-    plt.close()
-    return path
-
-async def fetch_data(url):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            html = await resp.text()
-            soup = BeautifulSoup(html, "html.parser")
-            try:
-                hourly = int(soup.select_one("div.report-count-hour span").text)
-                daily = int(soup.select_one("div.report-count-day span").text)
-                script = soup.find("script", string=lambda t: t and "Highcharts.chart" in t).text
-                start = script.find("data: [") + 7
-                end = script.find("]", start)
-                values = [int(x.strip()) for x in script[start:end].split(",")]
-                return hourly, daily, values
-            except:
-                return 0, 0, []
-
 # Запуск
 async def main():
     db.init_db()
@@ -204,5 +184,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
