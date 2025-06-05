@@ -1,14 +1,12 @@
 import asyncio
-import aiohttp
 import logging
 import subprocess
 import os
+from datetime import datetime, timedelta
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.utils import executor
 from aiogram.utils.exceptions import BotBlocked
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta, date
 
 import config
 import db
@@ -95,9 +93,8 @@ async def show_app_stats(callback: types.CallbackQuery):
     name = callback.data[4:]
     await callback.message.delete()
 
-    # Генерация графика с помощью Puppeteer
     try:
-        result = subprocess.run(["node", "make_graph.js", name], capture_output=True, text=True, timeout=15)
+        result = subprocess.run(["node", "./make_graph.js", name], capture_output=True, text=True, timeout=15)
         if result.returncode != 0:
             raise Exception(result.stderr)
         img_path = f"graphs/{name}_graph.png"
