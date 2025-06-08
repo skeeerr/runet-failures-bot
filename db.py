@@ -75,3 +75,10 @@ def get_last_messages(limit=5):
             "SELECT time, text FROM messages ORDER BY time DESC LIMIT ?", (limit,)
         ).fetchall()
         return [{"time": row[0], "text": row[1]} for row in rows]
+
+def update_user_name(user_id, new_name):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            "UPDATE users SET name = ? WHERE user_id = ?",
+            (new_name, user_id)
+        )
