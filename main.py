@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.exceptions import BotBlocked
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import State, StatesGroup
 
 import config
 import db
@@ -37,7 +39,8 @@ COMMANDS_TEXT = (
     "/ref - ваша реферальная ссылка\n"
     "/refstats - топ-10 по рефералам\n"
     "/admins - администраторы бота\n"
-    "/admin - панель администратора (для админов)"
+    "/admin - панель администратора (для админов)\n"
+    "/me - предоставляет информацию о себе"
 )
 
 ADMIN_TEXT = (
@@ -48,10 +51,14 @@ ADMIN_TEXT = (
 
 ADMIN_LOG_ID = config.ADMIN_IDS[0]
 
+class EditNameState(StatesGroup):
+    WaitingForName = State()
+
 main_menu = InlineKeyboardMarkup(row_width=1).add(
     InlineKeyboardButton("🛠️Сервисы", callback_data="menu_services"),
     InlineKeyboardButton("⚠️Последние сбои", callback_data="menu_last"),
     InlineKeyboardButton("🔗Реферальная ссылка", callback_data="menu_ref"),
+    InlineKeyboardButton("🎭 Информация обо мне", callback_data="menu_me"),
     InlineKeyboardButton("👥 Администраторы бота", callback_data="menu_admins"),
     InlineKeyboardButton("🕹️Доступные команды", callback_data="menu_commands")
 )
@@ -154,40 +161,6 @@ async def menu_commands(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup().add(InlineKeyboardButton("⬅️ Назад", callback_data="menu_main"))
     await bot.send_message(callback.from_user.id, COMMANDS_TEXT, reply_markup=kb)
 
-
-# Расширение функциональности Telegram-бота
-from aiogram.dispatcher.filters import Command
-from aiogram.utils.exceptions import BotBlocked
-import traceback
-
-# Команда /broadcast для админов
-@dp.message_handler(commands=["broadcast"])
-async def broadcast_command(message: types.Message):
-    if message.from_user.id not in config.ADMIN_IDS:
-        return
-
-    await message.reply("Введите текст рассылки:")
-
-    @dp.message_handler()
-    async def handle_broadcast_text(msg: types.Message):
-        success = 0
-        failed = 0
-        users = db.get_all_users()  # должен возвращать список user_id
-
-        for user in users:
-            try:
-                await bot.send_message(user["user_id"], msg.text)
-                success += 1
-            except BotBlocked:
-                failed += 1
-            except Exception as e:
-                failed += 1
-                logging.warning(f"Ошибка при рассылке {user['user_id']}: {e}")
-
-        await message.answer(f"📢 Рассылка завершена\nУспешно: {success}\nНе доставлено: {failed}")
-        dp.message_handlers.unregister(handle_broadcast_text)
-
-# Команда /me — информация о пользователе
 @dp.message_handler(commands=["me"])
 async def user_info(message: types.Message):
     user = db.get_user(message.from_user.id)
@@ -210,28 +183,42 @@ async def user_info(message: types.Message):
     )
     await message.answer(text, reply_markup=kb)
 
-# Обновлённый menu_ref с кнопкой "Главное меню"
-@dp.callback_query_handler(lambda c: c.data == "menu_ref")
-async def menu_ref(callback: types.CallbackQuery):
-    await callback.message.delete()
-    user_id = callback.from_user.id
-    bot_username = (await bot.get_me()).username
-    referral_link = f"https://t.me/{bot_username}?start={user_id}"
-    count = db.get_referral_count(user_id)
-    rank = db.get_referral_ranking(user_id)
+@dp.callback_query_handler(lambda c: c.data == "menu_me")
+async def menu_me(callback: types.CallbackQuery):
+    user = db.get_user(callback.from_user.id)
+    if not user:
+        await callback.message.answer("Информация не найдена.")
+        return
+
+    ref_count = db.get_referral_count(callback.from_user.id)
     text = (
-        f"✔️ <a href=\"{referral_link}\">ссылка</a> — вот твоя реферальная ссылка для приглашения людей в бота.\n\n"
-        f"🎯Всего приглашено: {count}\n"
-        f"🥇Ваш рейтинг в списке рефералов: {rank}"
+        f"👤 <b>Информация о пользователе</b>\n"
+        f"Имя: {user['name']}\n"
+        f"Юзернейм: @{callback.from_user.username if callback.from_user.username else 'нет'}\n"
+        f"ID: <code>{user['user_id']}</code>\n"
+        f"Дата входа: {user['joined_at']}\n"
+        f"👥 Приглашено пользователей: {ref_count}"
     )
-    kb = InlineKeyboardMarkup(row_width=1).add(
-        InlineKeyboardButton("🔗 Поделиться ссылкой", url=referral_link),
-        InlineKeyboardButton("🤴 Топ пригласивших пользователей", callback_data="menu_refstats"),
+    kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton("✏️ Отредактировать имя", callback_data="edit_name"),
         InlineKeyboardButton("⬅️ Назад", callback_data="menu_main"),
         InlineKeyboardButton("🔚 Главное меню", callback_data="menu_main")
     )
+    await callback.message.delete()
     await bot.send_message(callback.from_user.id, text, reply_markup=kb)
 
+@dp.callback_query_handler(lambda c: c.data == "edit_name")
+async def edit_name(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer("✏️ Напишите свое новое имя:")
+    await EditNameState.WaitingForName.set()
+
+@dp.message_handler(state=EditNameState.WaitingForName, content_types=types.ContentTypes.TEXT)
+async def receive_new_name(message: types.Message, state: FSMContext):
+    new_name = message.text.strip()
+    db.update_user_name(message.from_user.id, new_name)
+    await message.answer(f"✅ Имя обновлено на: {new_name}")
+    await state.finish()
+    await menu_me(types.CallbackQuery(message=message, from_user=message.from_user, data="menu_me"))
 
 # Запуск
 async def main():
@@ -240,6 +227,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
