@@ -9,6 +9,10 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.exceptions import BotBlocked
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.dispatcher.filters import Command
+from aiogram.utils.exceptions import BotBlocked
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import State, StatesGroup
 
 import config
 import db
@@ -220,6 +224,80 @@ async def receive_new_name(message: types.Message, state: FSMContext):
     await state.finish()
     await menu_me(types.CallbackQuery(message=message, from_user=message.from_user, data="menu_me"))
 
+
+
+# Состояния FSM
+class BroadcastStates(StatesGroup):
+    WaitingForMessage = State()
+    ConfirmingMessage = State()
+
+# Команда запуска рассылки
+@dp.message_handler(commands=["broadcast"])
+async def cmd_broadcast(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        await message.reply("⚠️ Эта команда только для администраторов.")
+        return
+    await message.answer("✉️ Отправьте ваше сообщение:")
+    await BroadcastStates.WaitingForMessage.set()
+
+# Получение текста от администратора
+@dp.message_handler(state=BroadcastStates.WaitingForMessage, content_types=types.ContentTypes.TEXT)
+async def receive_broadcast_text(message: types.Message, state: FSMContext):
+    await state.update_data(text=message.text)
+    kb = InlineKeyboardMarkup(row_width=2).add(
+        InlineKeyboardButton("✅ Отправить сообщение", callback_data="broadcast_send"),
+        InlineKeyboardButton("✒️ Отредактировать сообщение", callback_data="broadcast_edit")
+    )
+    await message.answer(
+        f"<b>Предпросмотр сообщения:</b>\n\n{message.text}\n\n"
+        "Вы хотите отправить данное сообщение пользователям или хотите что-то дополнить?",
+        reply_markup=kb,
+        parse_mode="HTML"
+    )
+    await BroadcastStates.ConfirmingMessage.set()
+
+# Обработка запроса на редактирование
+@dp.callback_query_handler(lambda c: c.data == "broadcast_edit", state=BroadcastStates.ConfirmingMessage)
+async def edit_broadcast(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.answer("✏️👇 Отредактируй сообщение, которое ты хочешь отправить:")
+    await BroadcastStates.WaitingForMessage.set()
+
+# Отправка рассылки
+@dp.callback_query_handler(lambda c: c.data == "broadcast_send", state=BroadcastStates.ConfirmingMessage)
+async def send_broadcast(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    text = data.get("text")
+    success = 0
+    blocked = 0
+    users = db.get_all_users()
+
+    for user in users:
+        try:
+            await bot.send_message(user["user_id"], text)
+            success += 1
+        except BotBlocked:
+            blocked += 1
+            db.block_user(user["user_id"])
+        except Exception as e:
+            logging.warning(f"Ошибка при отправке {user['user_id']}: {e}")
+
+    await callback.message.edit_text(
+        f"✅Сообщение успешно отправлено!\n"
+        f"✔️Доставлено: {success}\n"
+        f"❌Заблокировали бота: {blocked}\n\n"
+        f"🛜@nosignalrubot"
+    )
+
+    admin_name = callback.from_user.username
+    full_name = f"{callback.from_user.first_name or ''} {callback.from_user.last_name or ''}".strip()
+    admin_tag = f"@{admin_name} ({full_name})" if admin_name else f"{full_name}"
+    await bot.send_message(
+        config.ADMIN_IDS[0],
+        f"📬 Рассылка завершена админом {admin_tag}\n"
+        f"✔️ Доставлено: {success}\n"
+        f"❌ Заблокировали бота: {blocked}"
+    )
+    await state.finish()
 # Запуск
 async def main():
     db.init_db()
@@ -227,7 +305,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 
 
 
