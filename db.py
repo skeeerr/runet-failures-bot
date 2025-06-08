@@ -16,6 +16,26 @@ def add_user(user_id, name=None, referral_id=None):
             (user_id, name, referral_id),
         )
 
+def get_user(user_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT user_id, name, joined_at FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
+        if row:
+            return {"user_id": row[0], "name": row[1], "joined_at": row[2]}
+        return None
+
+def get_all_users():
+    with sqlite3.connect(DB_PATH) as conn:
+        return [
+            {"user_id": row[0]}
+            for row in conn.execute("SELECT user_id FROM users").fetchall()
+        ]
+
+def block_user(user_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+
 def get_referral_count(user_id):
     with sqlite3.connect(DB_PATH) as conn:
         return conn.execute(
