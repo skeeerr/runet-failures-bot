@@ -1,12 +1,17 @@
 
-CREATE TABLE IF NOT EXISTS users (
+-- Скрипт инициализации базы данных
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS messages;
+
+CREATE TABLE users (
     user_id INTEGER PRIMARY KEY,
     name TEXT,
-    referral_id INTEGER
+    referral_id INTEGER,
+    joined_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    time TEXT,
-    text TEXT
+    time TEXT DEFAULT CURRENT_TIMESTAMP,
+    text TEXT NOT NULL
 );
