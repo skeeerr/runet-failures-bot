@@ -1,17 +1,15 @@
 
--- Скрипт инициализации базы данных
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS messages;
-
-CREATE TABLE users (
+-CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY,
     name TEXT,
     referral_id INTEGER,
-    joined_at TEXT DEFAULT CURRENT_TIMESTAMP
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_blocked BOOLEAN DEFAULT 0
 );
 
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    time TEXT DEFAULT CURRENT_TIMESTAMP,
-    text TEXT NOT NULL
+    time TEXT,
+    text TEXT
 );
+
