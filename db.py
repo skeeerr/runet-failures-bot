@@ -12,7 +12,10 @@ def init_db():
 def add_user(user_id, name=None, referral_id=None):
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO users (user_id, name, referral_id) VALUES (?, ?, ?)",
+            """
+            INSERT OR IGNORE INTO users (user_id, name, referral_id, is_blocked)
+            VALUES (?, ?, ?, 0)
+            """,
             (user_id, name, referral_id),
         )
 
@@ -29,12 +32,12 @@ def get_all_users():
     with sqlite3.connect(DB_PATH) as conn:
         return [
             {"user_id": row[0]}
-            for row in conn.execute("SELECT user_id FROM users").fetchall()
+            for row in conn.execute("SELECT user_id FROM users WHERE is_blocked = 0").fetchall()
         ]
 
 def block_user(user_id):
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        conn.execute("UPDATE users SET is_blocked = 1 WHERE user_id = ?", (user_id,))
 
 def get_referral_count(user_id):
     with sqlite3.connect(DB_PATH) as conn:
