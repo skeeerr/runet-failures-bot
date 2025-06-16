@@ -165,7 +165,7 @@ async def ref_link(message: Message):
         logger.error(f"Ошибка в ref_link: {e}")
         await message.answer("⚠️ Произошла ошибка при генерации ссылки")
 
-@router.message(F.text == "/refstats"))
+@router.message(F.text == "/refstats")
 async def ref_stats(message: Message):
     try:
         text, kb = await send_ref_stats_page(message.from_user.id)
