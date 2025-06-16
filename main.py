@@ -192,7 +192,7 @@ async def ref_stats_page(callback: CallbackQuery):
     finally:
         await callback.answer()
 
-@router.message(F.text == "/admin"))
+@router.message(F.text == "/admin")
 async def admin_panel(message: Message):
     try:
         if message.from_user.id not in config.ADMIN_IDS:
