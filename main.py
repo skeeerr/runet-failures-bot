@@ -259,7 +259,7 @@ async def menu_me(callback: CallbackQuery):
     await callback.message.delete()
     await send_user_info(callback.from_user.id, callback)
 
-@router.callback_query(F.data == "edit_name"))
+@router.callback_query(F.data == "edit_name")
 async def edit_name(callback: CallbackQuery, state: FSMContext):
     try:
         await callback.message.answer("✏️ Напишите свое новое имя:")
