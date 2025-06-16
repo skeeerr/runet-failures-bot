@@ -285,7 +285,7 @@ async def receive_new_name(message: Message, state: FSMContext):
         logger.error(f"Ошибка в receive_new_name: {e}")
         await message.answer("⚠️ Произошла ошибка при обновлении имени")
 
-@router.message(F.text == "/broadcast"))
+@router.message(F.text == "/broadcast")
 async def cmd_broadcast(message: Message, state: FSMContext):
     try:
         if message.from_user.id not in config.ADMIN_IDS:
