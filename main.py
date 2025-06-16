@@ -209,7 +209,7 @@ async def admin_panel(message: Message):
         logger.error(f"Ошибка в admin_panel: {e}")
         await message.answer("⚠️ Произошла ошибка при загрузке панели")
 
-@router.callback_query(F.data == "admin_broadcast"))
+@router.callback_query(F.data == "admin_broadcast")
 async def admin_broadcast(callback: CallbackQuery, state: FSMContext):
     try:
         await cmd_broadcast(callback.message, state)
