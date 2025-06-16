@@ -228,7 +228,7 @@ async def admin_stats(callback: CallbackQuery):
     finally:
         await callback.answer()
 
-@router.callback_query(F.data == "admin_logs"))
+@router.callback_query(F.data == "admin_logs")
 async def admin_logs(callback: CallbackQuery):
     try:
         if not os.path.exists("bot.log"):
