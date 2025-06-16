@@ -155,7 +155,7 @@ async def handle_start(message: Message):
         logger.error(f"Ошибка в handle_start: {e}")
         await message.answer("⚠️ Произошла ошибка при регистрации")
 
-@router.message(F.text == "/ref"))
+@router.message(F.text == "/ref")
 async def ref_link(message: Message):
     try:
         user_id = message.from_user.id
