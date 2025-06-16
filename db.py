@@ -32,9 +32,6 @@ def add_user(user_id, name=None, referral_id=None):
         logger.error(f"Ошибка добавления пользователя {user_id}: {e}")
         raise DBError("Не удалось добавить пользователя")
 
-# Аналогично для остальных функций добавляем обработку ошибок
-# ...
-
 def get_last_messages(limit=5):
     try:
         with sqlite3.connect(DB_PATH) as conn:
