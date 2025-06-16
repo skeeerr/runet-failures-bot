@@ -217,7 +217,7 @@ async def admin_broadcast(callback: CallbackQuery, state: FSMContext):
         logger.error(f"Ошибка в admin_broadcast: {e}")
         await callback.answer("⚠️ Произошла ошибка")
 
-@router.callback_query(F.data == "admin_stats"))
+@router.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
     try:
         count = len(db.get_all_users())
