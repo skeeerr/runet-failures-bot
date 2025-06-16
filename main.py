@@ -250,7 +250,7 @@ async def admin_logs(callback: CallbackQuery):
     finally:
         await callback.answer()
 
-@router.message(F.text == "/me"))
+@router.message(F.text == "/me")
 async def user_info(message: Message):
     await send_user_info(message.from_user.id, message)
 
