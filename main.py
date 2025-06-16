@@ -254,7 +254,7 @@ async def admin_logs(callback: CallbackQuery):
 async def user_info(message: Message):
     await send_user_info(message.from_user.id, message)
 
-@router.callback_query(F.data == "menu_me"))
+@router.callback_query(F.data == "menu_me")
 async def menu_me(callback: CallbackQuery):
     await callback.message.delete()
     await send_user_info(callback.from_user.id, callback)
